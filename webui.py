@@ -1,18 +1,77 @@
 #!/usr/bin/env python3
 """
 MTProto Manager Web UI - Flask dashboard for mtprotoproxy
+With login authentication support.
 """
-import json, os, secrets, subprocess, re
+import json, os, secrets, subprocess, re, functools
 from pathlib import Path
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, Response, session, redirect, url_for
 
 INSTALL_DIR = Path("/opt/mtprotoproxy")
 STATE_FILE = INSTALL_DIR / "manager_state.json"
 CONFIG_FILE = INSTALL_DIR / "config.py"
 SERVICE_NAME = "mtprotoproxy"
 
+WEBUI_DIR = Path("/opt/mtprotoproxy-webui")
+AUTH_FILE = WEBUI_DIR / "auth.json"
+SECRET_KEY_FILE = WEBUI_DIR / "session.key"
+
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
+# Load or generate session secret key
+if SECRET_KEY_FILE.exists():
+    app.secret_key = SECRET_KEY_FILE.read_text().strip()
+else:
+    app.secret_key = secrets.token_hex(32)
+    SECRET_KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SECRET_KEY_FILE.write_text(app.secret_key)
+
+
+# ---- Auth Helpers ----
+
+def load_auth():
+    """Load auth credentials from auth.json."""
+    if not AUTH_FILE.exists():
+        return None
+    try:
+        with open(AUTH_FILE) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def check_auth(user, password):
+    """Check username/password against stored hash."""
+    auth = load_auth()
+    if not auth:
+        return True  # No auth configured = open access
+    from werkzeug.security import check_password_hash
+    if user == auth.get("username") and check_password_hash(auth.get("password_hash", ""), password):
+        return True
+    return False
+
+
+def is_authenticated():
+    """Check if current session is authenticated."""
+    auth = load_auth()
+    if not auth:
+        return True  # No auth configured = open access
+    return session.get("authenticated", False)
+
+
+def login_required(f):
+    """Decorator to require login for a route."""
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not is_authenticated():
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Login required"}), 401
+            return redirect(url_for("login_page"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ---- System Helpers ----
 
 def _run(cmd):
     try:
@@ -108,7 +167,35 @@ def human_to_bytes(gb):
         return 0
 
 
+# ---- Auth Routes ----
+
+@app.route("/login", methods=["GET", "POST"])
+def login_page():
+    auth = load_auth()
+    if not auth:
+        return redirect(url_for("index"))
+    error = None
+    if request.method == "POST":
+        user = request.form.get("username", "")
+        password = request.form.get("password", "")
+        if check_auth(user, password):
+            session["authenticated"] = True
+            session["username"] = user
+            return redirect(url_for("index"))
+        error = "Invalid username or password"
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+def logout_page():
+    session.clear()
+    return redirect(url_for("login_page"))
+
+
+# ---- API Routes ----
+
 @app.route("/api/status")
+@login_required
 def api_status():
     state = load_state()
     r = _run(["systemctl", "is-active", SERVICE_NAME])
@@ -124,6 +211,7 @@ def api_status():
 
 
 @app.route("/api/users")
+@login_required
 def api_users():
     state = load_state()
     ip = get_public_ip()
@@ -145,6 +233,7 @@ def api_users():
 
 
 @app.route("/api/users", methods=["POST"])
+@login_required
 def api_add_user():
     data = request.get_json(force=True)
     name = data.get("name", "").strip()
@@ -179,6 +268,7 @@ def api_add_user():
 
 
 @app.route("/api/users/<name>", methods=["DELETE"])
+@login_required
 def api_remove_user(name):
     state = load_state()
     if name not in state["users"]:
@@ -191,6 +281,7 @@ def api_remove_user(name):
 
 
 @app.route("/api/settings", methods=["PUT"])
+@login_required
 def api_update_settings():
     data = request.get_json(force=True)
     state = load_state()
@@ -209,11 +300,13 @@ def api_update_settings():
 
 
 @app.route("/api/restart", methods=["POST"])
+@login_required
 def api_restart():
     return jsonify({"success": True, "message": restart_service()})
 
 
 @app.route("/")
+@login_required
 def index():
     return render_template("index.html")
 

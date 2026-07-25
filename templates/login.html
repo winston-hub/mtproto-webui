@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTProto Manager - Login</title>
+<style>
+:root{--bg:#0f1117;--card:#1a1d27;--border:#2a2e3a;--text:#e4e6ef;--muted:#8b8fa3;--accent:#6c5ce7;--red:#ff5c6c;--radius:14px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2.5rem;width:90%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.login-box h1{text-align:center;font-size:1.4rem;margin-bottom:.3rem}
+.login-box .subtitle{text-align:center;color:var(--muted);font-size:.85rem;margin-bottom:1.8rem}
+.login-box .icon{text-align:center;font-size:2.5rem;margin-bottom:.8rem}
+.form-group{display:flex;flex-direction:column;gap:.3rem;margin-bottom:1rem}
+.form-group label{font-size:.78rem;color:var(--muted);font-weight:600}
+.form-group input{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.65rem .8rem;color:var(--text);font-size:.9rem;outline:none;transition:border-color .15s}
+.form-group input:focus{border-color:var(--accent)}
+.error{background:rgba(255,92,108,.12);color:var(--red);padding:.5rem .8rem;border-radius:8px;font-size:.8rem;margin-bottom:1rem;text-align:center}
+.btn{width:100%;padding:.65rem;border:none;border-radius:8px;font-size:.9rem;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.footer{text-align:center;margin-top:1.2rem;font-size:.72rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="login-box">
+  <div class="icon">&#128274;</div>
+  <h1>MTProto Manager</h1>
+  <p class="subtitle">Login to Web Panel</p>
+  {% if error %}
+  <div class="error">{{ error }}</div>
+  {% endif %}
+  <form method="POST" action="/login">
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" name="username" placeholder="Enter username" required autofocus>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" name="password" placeholder="Enter password" required>
+    </div>
+    <button type="submit" class="btn">Login</button>
+  </form>
+  <div class="footer">Secured access - credentials set via terminal</div>
+</div>
+</body>
+</html>

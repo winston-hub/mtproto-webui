@@ -531,11 +531,18 @@ webui_info() {
     echo -e "URL:     ${GR}http://${ip}:5000${NC}"
     echo -e "Status:  $([ "$active" = "active" ] && echo -e "${GR}Running${NC}" || echo -e "${RED}Not running${NC}")"
     echo "Service: ${WEBUI_SERVICE}"
+    if [ -f "${WEBUI_DIR}/auth.json" ]; then
+        echo -e "Auth:    ${GR}Enabled${NC}"
+    else
+        echo -e "Auth:    ${YE}Disabled (open access)${NC}"
+    fi
     echo ""
     echo "1) Start Web UI"
     echo "2) Stop Web UI"
     echo "3) Restart Web UI"
     echo "4) View logs (last 20 lines)"
+    echo "5) Set/change login password"
+    echo "6) Remove login password"
     echo "0) Back"
     read -p "Choice: " wc
     case $wc in
@@ -543,7 +550,60 @@ webui_info() {
         2) systemctl stop ${WEBUI_SERVICE}; echo -e "${YE}Stopped.${NC}" ;;
         3) systemctl restart ${WEBUI_SERVICE}; echo -e "${GR}Restarted.${NC}" ;;
         4) journalctl -u ${WEBUI_SERVICE} --no-pager -n 20 ;;
+        5) set_webui_password ;;
+        6) remove_webui_password ;;
     esac
+}
+
+set_webui_password() {
+    echo -e "${CY}--- Set Web UI Password ---${NC}"
+    read -p "Username: " wu_user
+    if [ -z "$wu_user" ]; then
+        echo -e "${RED}Username cannot be empty.${NC}"
+        return
+    fi
+    read -s -p "Password: " wu_pass
+    echo ""
+    if [ -z "$wu_pass" ]; then
+        echo -e "${RED}Password cannot be empty.${NC}"
+        return
+    fi
+    read -s -p "Confirm password: " wu_pass2
+    echo ""
+    if [ "$wu_pass" != "$wu_pass2" ]; then
+        echo -e "${RED}Passwords do not match.${NC}"
+        return
+    fi
+    mkdir -p "$WEBUI_DIR"
+    python3 - "$wu_user" "$wu_pass" "${WEBUI_DIR}/auth.json" <<'PWEOF'
+import sys, json
+from werkzeug.security import generate_password_hash
+username, password, auth_path = sys.argv[1], sys.argv[2], sys.argv[3]
+data = {"username": username, "password_hash": generate_password_hash(password)}
+with open(auth_path, "w") as f:
+    json.dump(data, f, indent=2)
+PWEOF
+    if [ $? -eq 0 ]; then
+        chmod 600 "${WEBUI_DIR}/auth.json"
+        systemctl restart ${WEBUI_SERVICE} 2>/dev/null
+        echo -e "${GR}Password set! Restarting Web UI...${NC}"
+        echo -e "User: ${CY}${wu_user}${NC}"
+    else
+        echo -e "${RED}Failed to set password (is werkzeug installed?)${NC}"
+    fi
+}
+
+remove_webui_password() {
+    if [ ! -f "${WEBUI_DIR}/auth.json" ]; then
+        echo -e "${YE}No password is set.${NC}"
+        return
+    fi
+    read -p "Remove login password? (y/N): " confirm
+    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+        rm -f "${WEBUI_DIR}/auth.json"
+        systemctl restart ${WEBUI_SERVICE} 2>/dev/null
+        echo -e "${YE}Password removed. Web UI is now open access.${NC}"
+    fi
 }
 
 while true; do
