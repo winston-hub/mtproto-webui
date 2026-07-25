@@ -1,0 +1,15 @@
+[Unit]
+Description=MTProto Manager Web UI
+After=network.target mtprotoproxy.service
+Requires=mtprotoproxy.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mtprotoproxy-webui
+ExecStart=/usr/bin/python3 /opt/mtprotoproxy-webui/webui.py
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

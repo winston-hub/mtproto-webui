@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTProto Manager - Web Panel</title>
+<style>
+:root{--bg:#0f1117;--card:#1a1d27;--card-hover:#222632;--border:#2a2e3a;--text:#e4e6ef;--muted:#8b8fa3;--accent:#6c5ce7;--accent-light:#a29bfe;--green:#00d2a0;--green-bg:rgba(0,210,160,.12);--red:#ff5c6c;--red-bg:rgba(255,92,108,.12);--blue:#4ea8ff;--radius:14px;--shadow:0 4px 24px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent-light);text-decoration:none}a:hover{text-decoration:underline}
+
+.header{background:linear-gradient(135deg,#1a1d27 0%,#252838 100%);border-bottom:1px solid var(--border);padding:1.2rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.header h1{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:.6rem}
+.header h1 .logo{font-size:1.8rem}
+.status-badge{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;font-size:.8rem;font-weight:600}
+.status-badge.active{background:var(--green-bg);color:var(--green)}
+.status-badge.inactive{background:var(--red-bg);color:var(--red)}
+.status-badge .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.header-actions{display:flex;gap:.6rem}
+
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1.1rem;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#5b4bd6}
+.btn-success{background:var(--green);color:#fff}.btn-success:hover{opacity:.85}
+.btn-danger{background:var(--red);color:#fff}.btn-danger:hover{opacity:.85}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}.btn-ghost:hover{border-color:var(--accent);color:var(--text)}
+.btn-sm{padding:.35rem .7rem;font-size:.78rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.main{max-width:1100px;margin:0 auto;padding:1.5rem;display:flex;flex-direction:column;gap:1.5rem}
+
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem;transition:border-color .2s}
+.stat-card:hover{border-color:var(--accent)}
+.stat-label{font-size:.78rem;color:var(--muted);margin-bottom:.3rem}
+.stat-value{font-size:1.4rem;font-weight:700}
+.stat-value.green{color:var(--green)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.card-header{padding:1rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.card-header h2{font-size:1.05rem;font-weight:700}
+.card-body{padding:1.2rem}
+
+.proxy-list{display:flex;flex-direction:column;gap:.7rem}
+.proxy-item{display:flex;align-items:center;gap:1rem;padding:.8rem 1rem;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;transition:border-color .15s,background .15s;flex-wrap:wrap}
+.proxy-item:hover{background:var(--card-hover);border-color:var(--accent)}
+.proxy-name{font-weight:700;min-width:80px;font-size:.95rem}
+.proxy-link{flex:1;min-width:200px;font-size:.78rem;color:var(--muted);word-break:break-all;font-family:'Fira Code',Consolas,monospace}
+.proxy-link a{color:var(--blue)}
+.proxy-meta{display:flex;gap:1rem;font-size:.75rem;color:var(--muted);flex-wrap:wrap}
+.proxy-meta span{white-space:nowrap}
+.proxy-actions{display:flex;gap:.4rem}
+
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:600px){.form-row{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:.3rem}
+.form-group label{font-size:.78rem;color:var(--muted);font-weight:600}
+.form-group input,.form-group select{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.6rem .8rem;color:var(--text);font-size:.88rem;outline:none;transition:border-color .15s}
+.form-group input:focus{border-color:var(--accent)}
+.form-group .hint{font-size:.7rem;color:var(--muted)}
+
+.empty-state{text-align:center;padding:2rem;color:var(--muted)}
+.empty-state .icon{font-size:2.5rem;margin-bottom:.5rem}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);width:90%;max-width:500px;box-shadow:var(--shadow);transform:translateY(20px);transition:transform .2s}
+.modal-overlay.show .modal{transform:translateY(0)}
+.modal-header{padding:1rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-header h3{font-size:1rem}
+.modal-close{background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:.2rem;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:1.2rem;display:flex;flex-direction:column;gap:1rem}
+.modal-footer{padding:.8rem 1.2rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.6rem}
+
+.toast-container{position:fixed;top:1rem;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
+.toast{padding:.7rem 1.2rem;border-radius:8px;font-size:.85rem;font-weight:600;animation:fadeInDown .3s ease;pointer-events:all;text-align:center}
+.toast.success{background:var(--green);color:#fff}
+.toast.error{background:var(--red);color:#fff}
+.toast.info{background:var(--accent);color:#fff}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span class="logo">&#9889;</span> MTProto Manager</h1>
+  <div style="display:flex;align-items:center;gap:.8rem;">
+    <span id="svc-badge" class="status-badge active"><span class="dot"></span> <span id="svc-text">Active</span></span>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" onclick="loadAll()" title="Refresh">&#128260; Refresh</button>
+      <button class="btn btn-ghost btn-sm" onclick="restartService()" title="Restart service">&#128257; Restart</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Service Status</div>
+      <div class="stat-value green" id="stat-service">&mdash;</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Port</div>
+      <div class="stat-value" id="stat-port">&mdash;</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Proxies</div>
+      <div class="stat-value" id="stat-users">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Server IP</div>
+      <div class="stat-value" id="stat-ip" style="font-size:1rem">&mdash;</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>&#128279; Proxies</h2>
+      <button class="btn btn-primary btn-sm" onclick="openAddModal()">&#10133; Add Proxy</button>
+    </div>
+    <div class="card-body">
+      <div id="proxy-list" class="proxy-list">
+        <div class="empty-state"><div class="icon">&#128225;</div>No proxies yet. Click "Add Proxy" to get started.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>&#9881;&#65039; Global Settings</h2>
+      <button class="btn btn-success btn-sm" onclick="saveSettings()">&#128190; Save &amp; Restart</button>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Port</label>
+          <input type="number" id="set-port" min="1" max="65535" placeholder="443">
+          <span class="hint">TCP port for all proxies (usually 443)</span>
+        </div>
+        <div class="form-group">
+          <label>Fake-TLS Domain</label>
+          <input type="text" id="set-domain" placeholder="www.google.com">
+          <span class="hint">Domain to disguise TLS traffic as</span>
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:1rem;">
+        <div class="form-group">
+          <label>Sponsor Channel Tag (AD_TAG)</label>
+          <input type="text" id="set-adtag" placeholder="(not set)">
+          <span class="hint">Get from @MTProxybot on Telegram</span>
+        </div>
+        <div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>&#10133; Add New Proxy</h3>
+      <button class="modal-close" onclick="closeAddModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="new-name" placeholder="e.g. my-proxy, client1">
+      </div>
+      <div class="form-group">
+        <label>Secret (32 hex, leave empty to auto-generate)</label>
+        <input type="text" id="new-secret" maxlength="32" placeholder="auto-generate if empty">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Data Limit (GB)</label>
+          <input type="number" id="new-quota" min="0" placeholder="0 = unlimited">
+        </div>
+        <div class="form-group">
+          <label>Max Connections</label>
+          <input type="number" id="new-conns" min="0" placeholder="0 = unlimited">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAddModal()">Cancel</button>
+      <button class="btn btn-primary" id="add-btn" onclick="addProxy()">Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="view-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>&#128279; Proxy Link</h3>
+      <button class="modal-close" onclick="document.getElementById('view-modal').classList.remove('show')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="view-name" readonly>
+      </div>
+      <div class="form-group">
+        <label>Secret</label>
+        <input type="text" id="view-secret" readonly>
+      </div>
+      <div class="form-group">
+        <label>Telegram Proxy Link</label>
+        <input type="text" id="view-link" readonly>
+        <span class="hint">Click to select and copy</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-success" onclick="copyLink()">&#128203; Copy Link</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('view-modal').classList.remove('show')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+var allUsers = [];
+
+function toast(msg, type) {
+  type = type || 'info';
+  var el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(function() { el.remove(); }, 3500);
+}
+
+function api(path, opts, cb) {
+  opts = opts || {};
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', path);
+  if (opts.method) xhr.open(opts.method, path);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.onload = function() {
+    try { cb(JSON.parse(xhr.responseText)); } catch(e) { cb(null); }
+  };
+  xhr.onerror = function() { toast('Network error', 'error'); cb(null); };
+  xhr.send(opts.body || null);
+}
+
+function esc(s) {
+  var el = document.createElement('span');
+  el.textContent = s;
+  return el.innerHTML;
+}
+
+function loadAll() {
+  api('/api/status', {}, function(status) {
+    if (!status) return;
+    var badge = document.getElementById('svc-badge');
+    var txt = document.getElementById('svc-text');
+    if (status.service === 'active') {
+      badge.className = 'status-badge active';
+      txt.textContent = 'Active';
+    } else {
+      badge.className = 'status-badge inactive';
+      txt.textContent = status.service || 'Inactive';
+    }
+    document.getElementById('stat-service').textContent = status.service === 'active' ? '\uD83D\uDFE2 Running' : '\uD83D\uDD34 ' + (status.service || 'Inactive');
+    document.getElementById('stat-port').textContent = status.port;
+    document.getElementById('stat-users').textContent = status.users_count;
+    document.getElementById('stat-ip').textContent = status.server_ip;
+    document.getElementById('set-port').value = status.port;
+    document.getElementById('set-domain').value = status.tls_domain || '';
+    document.getElementById('set-adtag').value = status.ad_tag || '';
+  });
+
+  api('/api/users', {}, function(users) {
+    allUsers = users || [];
+    renderUsers();
+  });
+}
+
+function renderUsers() {
+  var container = document.getElementById('proxy-list');
+  if (!allUsers.length) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">&#128225;</div>No proxies yet. Click "Add Proxy" to get started.</div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < allUsers.length; i++) {
+    var u = allUsers[i];
+    html += '<div class="proxy-item">';
+    html += '<span class="proxy-name">' + esc(u.name) + '</span>';
+    html += '<span class="proxy-link"><a href="' + esc(u.link) + '" target="_blank">' + esc(u.link) + '</a></span>';
+    html += '<span class="proxy-meta"><span>\uD83D\uDCBE ' + u.quota_human + '</span><span>\uD83D\uDCF1 ' + (u.max_conns || 'unlimited') + '</span></span>';
+    html += '<div class="proxy-actions">';
+    html += '<button class="btn btn-ghost btn-sm" onclick="viewProxy(\'' + esc(u.name) + '\')" title="View">&#128065;</button>';
+    html += '<button class="btn btn-ghost btn-sm" onclick="copyText(\'' + esc(u.link) + '\')" title="Copy">&#128203;</button>';
+    html += '<button class="btn btn-danger btn-sm" onclick="deleteProxy(\'' + esc(u.name) + '\')" title="Delete">&#128465;</button>';
+    html += '</div></div>';
+  }
+  container.innerHTML = html;
+}
+
+function openAddModal() {
+  document.getElementById('new-name').value = '';
+  document.getElementById('new-secret').value = '';
+  document.getElementById('new-quota').value = '0';
+  document.getElementById('new-conns').value = '0';
+  document.getElementById('add-modal').classList.add('show');
+  document.getElementById('new-name').focus();
+}
+function closeAddModal() {
+  document.getElementById('add-modal').classList.remove('show');
+}
+
+function addProxy() {
+  var name = document.getElementById('new-name').value.trim();
+  if (!name) { toast('Name is required', 'error'); return; }
+  var body = JSON.stringify({
+    name: name,
+    secret: document.getElementById('new-secret').value.trim(),
+    quota_gb: parseInt(document.getElementById('new-quota').value) || 0,
+    max_conns: parseInt(document.getElementById('new-conns').value) || 0
+  });
+  document.getElementById('add-btn').disabled = true;
+  api('/api/users', { method: 'POST', body: body }, function(res) {
+    document.getElementById('add-btn').disabled = false;
+    if (res && res.success) {
+      toast('Proxy "' + name + '" created!', 'success');
+      closeAddModal();
+      loadAll();
+    } else if (res && res.error) {
+      toast(res.error, 'error');
+    }
+  });
+}
+
+function deleteProxy(name) {
+  if (!confirm('Delete proxy "' + name + '"?')) return;
+  api('/api/users/' + encodeURIComponent(name), { method: 'DELETE' }, function(res) {
+    if (res && res.success) { toast('Proxy "' + name + '" deleted', 'success'); loadAll(); }
+    else if (res && res.error) toast(res.error, 'error');
+  });
+}
+
+function viewProxy(name) {
+  for (var i = 0; i < allUsers.length; i++) {
+    if (allUsers[i].name === name) {
+      var u = allUsers[i];
+      document.getElementById('view-name').value = u.name;
+      document.getElementById('view-secret').value = u.secret;
+      document.getElementById('view-link').value = u.link;
+      document.getElementById('view-modal').classList.add('show');
+      return;
+    }
+  }
+}
+
+function copyLink() { copyText(document.getElementById('view-link').value); }
+
+function copyText(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() { toast('Copied!', 'success'); });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    toast('Copied!', 'success');
+  }
+}
+
+function saveSettings() {
+  var body = JSON.stringify({
+    port: parseInt(document.getElementById('set-port').value),
+    tls_domain: document.getElementById('set-domain').value,
+    ad_tag: document.getElementById('set-adtag').value
+  });
+  api('/api/settings', { method: 'PUT', body: body }, function(res) {
+    if (res && res.success) { toast('Settings saved! Service restarted.', 'success'); loadAll(); }
+    else if (res && res.error) toast(res.error, 'error');
+  });
+}
+
+function restartService() {
+  if (!confirm('Restart mtprotoproxy service?')) return;
+  toast('Restarting service...', 'info');
+  api('/api/restart', { method: 'POST' }, function(res) {
+    if (res) { toast(res.message || 'Done', 'success'); setTimeout(loadAll, 1500); }
+  });
+}
+
+loadAll();
+setInterval(loadAll, 30000);
+</script>
+</body>
+</html>
