@@ -481,7 +481,11 @@ install_webui() {
         cp "/tmp/webui/webui.py" "${WEBUI_DIR}/webui.py"
         [ -d "/tmp/webui/templates" ] && cp -r "/tmp/webui/templates" "${WEBUI_DIR}/"
     else
-        error "Could not locate webui.py. Make sure webui.py and templates/ are in the same directory as this script."
+        info "Downloading Web UI files from GitHub..."
+        local REPO_URL="https://raw.githubusercontent.com/winston-hub/mtproto-webui/main"
+        curl -sSL "${REPO_URL}/webui.py" -o "${WEBUI_DIR}/webui.py" || error "Failed to download webui.py"
+        curl -sSL "${REPO_URL}/templates/index.html" -o "${WEBUI_DIR}/templates/index.html" || error "Failed to download index.html"
+        curl -sSL "${REPO_URL}/templates/login.html" -o "${WEBUI_DIR}/templates/login.html" || error "Failed to download login.html"
     fi
 
     chmod +x "${WEBUI_DIR}/webui.py"
